@@ -13,5 +13,5 @@
 - **Loss Function**: Contrastive Loss (correct and wrong pairs similarity)
 - **Device**: GPU (with CUDA support)
 - **Command** python fine-tune.py --batch_size 128 --num_epochs 20 --learning_rate 5e-5 --accumulation_steps 2
-- **Command for wrong pair** python fine-tune.py --num_epochs 20 --learning_rate 5e-05 --batch_size 128 --accumulation_steps 2 --wrong_pair
+- **Command for wrong pair** python fine-tune.py --num_epochs 20 --learning_rate 5e-05 --batch_size 128 --accumulation_steps 2 --fine_tune_type wrong_pair
 
