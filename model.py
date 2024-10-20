@@ -191,7 +191,7 @@ if __name__ == '__main__':
     
     # Hardcoded file paths
     csv_file = "/users/zliu328/multimodal-semantics-entropy/filtered_iapr_dataset_77_tokens.csv"
-    model_save_path = "/users/zliu328/multimodal-semantics-entropy/clip_finetuned_rightpair"
+    model_save_path = "/users/zliu328/multimodal-semantics-entropy/clip_finetuned"
 
     # Call the appropriate fine-tuning function based on the user-specified type
     if args.fine_tune_type == 'right_pair':
