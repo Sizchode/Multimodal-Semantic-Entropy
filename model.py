@@ -47,6 +47,7 @@ class ContrastiveClipDataset(Dataset):
 
         return image, correct_text, wrong_text
 
+
 # Fine-tuning the CLIP model with gradient accumulation
 def fine_tune_clip(csv_file, model_save_path, num_epochs, learning_rate, batch_size, accumulation_steps):
     # Load the OpenCLIP model and tokenizer
@@ -111,8 +112,9 @@ def fine_tune_clip(csv_file, model_save_path, num_epochs, learning_rate, batch_s
     torch.save(model.state_dict(), model_save_path)
     print(f"Fine-tuned model saved to {model_save_path}")
 
-# Tentative ! wrong_pair fine tune
-def wrong_pair_fine_tune_clip(csv_file, model_save_path, num_epochs, learning_rate, batch_size, accumulation_steps):
+
+# Tentative ! Wrong-pair fine-tune function
+def fine_tune_wrong_pair(csv_file, model_save_path, num_epochs, learning_rate, batch_size, accumulation_steps):
     # Load the OpenCLIP model and tokenizer
     model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
     tokenizer = open_clip.get_tokenizer('ViT-B-32')
@@ -136,11 +138,10 @@ def wrong_pair_fine_tune_clip(csv_file, model_save_path, num_epochs, learning_ra
             for i in range(accumulation_steps):
                 # Forward pass
                 batch_images = images.to(device)
-                # Swapping correct and wrong text to fine-tune with wrong image-text pairs as correct
-                batch_correct_texts = wrong_texts.squeeze(1).to(device)
-                batch_wrong_texts = correct_texts.squeeze(1).to(device)
+                batch_correct_texts = wrong_texts.squeeze(1).to(device)  # Treat wrong texts as correct
+                batch_wrong_texts = correct_texts.squeeze(1).to(device)  # Treat correct texts as wrong
 
-                # Encode images and both wrong/correct texts (swapped)
+                # Encode images and both swapped correct/incorrect texts
                 image_features = model.encode_image(batch_images)
                 correct_text_features = model.encode_text(batch_correct_texts)
                 wrong_text_features = model.encode_text(batch_wrong_texts)
@@ -154,7 +155,7 @@ def wrong_pair_fine_tune_clip(csv_file, model_save_path, num_epochs, learning_ra
                 correct_logits = (image_features @ correct_text_features.t()) * model.logit_scale.exp()
                 wrong_logits = (image_features @ wrong_text_features.t()) * model.logit_scale.exp()
 
-                # Contrastive loss: Maximize swapped pair similarities, minimize correct pairs similarities (as wrong)
+                # Contrastive loss: Maximize swapped correct pair similarities, minimize swapped wrong pair similarities
                 loss = -(torch.log_softmax(correct_logits, dim=1).diag().mean() -
                          torch.log_softmax(wrong_logits, dim=1).diag().mean())
 
@@ -170,11 +171,11 @@ def wrong_pair_fine_tune_clip(csv_file, model_save_path, num_epochs, learning_ra
         print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {total_loss}")
 
     # Dynamically construct the save path with hyperparameters
-    model_save_path = f"{model_save_path}_wrongpair_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}.pth"
+    model_save_path = f"{model_save_path}_wrong_pair_lr{learning_rate}_bs{batch_size}_epochs{num_epochs}.pth"
     
     # Save the fine-tuned model
     torch.save(model.state_dict(), model_save_path)
-    print(f"Fine-tuned model saved to {model_save_path}")
+    print(f"Wrong-pair fine-tuned model saved to {model_save_path}")
 
 
 if __name__ == '__main__':
@@ -185,23 +186,14 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=5e-05, help="Learning rate for the optimizer")
     parser.add_argument('--batch_size', type=int, default=128, help="Batch size for training")
     parser.add_argument('--accumulation_steps', type=int, default=2, help="Gradient accumulation steps")
-    parser.add_argument('--wrong_pair', action='store_true', help="Flag to fine-tune with wrong pairs as correct")
+    parser.add_argument('--fine_tune_type', type=str, choices=['right_pair', 'wrong_pair'], default='right_pair', help="Type of fine-tuning: right_pair or wrong_pair")
 
     args = parser.parse_args()
-    
-    # Hardcoded file paths
     csv_file = "/users/zliu328/multimodal-semantics-entropy/filtered_iapr_dataset_77_tokens.csv"
     model_save_path = "/users/zliu328/multimodal-semantics-entropy/clip_finetuned_rightpair"
-    
-    # Check if wrong_pair flag is passed, then call the respective fine-tuning function
-    if args.wrong_pair:
-It seems like the message was cut off. Here's how you can finish the conditional check and choose between the normal fine-tuning and the "wrong pair" fine-tuning based on the `--wrong_pair` flag:
 
-```python
-    # Check if wrong_pair flag is passed, then call the respective fine-tuning function
-    if args.wrong_pair:
-        # Call the wrong pair fine-tuning function
-        wrong_pair_fine_tune_clip(csv_file, model_save_path, args.num_epochs, args.learning_rate, args.batch_size, args.accumulation_steps)
-    else:
-        # Call the regular fine-tuning function
+    # Call the appropriate fine-tuning function based on the user-specified type
+    if args.fine_tune_type == 'right_pair':
         fine_tune_clip(csv_file, model_save_path, args.num_epochs, args.learning_rate, args.batch_size, args.accumulation_steps)
+    else:
+        fine_tune_wrong_pair(csv_file, model_save_path, args.num_epochs, args.learning_rate, args.batch_size, args.accumulation_steps)
