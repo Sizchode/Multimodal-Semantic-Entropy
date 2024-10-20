@@ -186,14 +186,38 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=5e-05, help="Learning rate for the optimizer")
     parser.add_argument('--batch_size', type=int, default=128, help="Batch size for training")
     parser.add_argument('--accumulation_steps', type=int, default=2, help="Gradient accumulation steps")
-    parser.add_argument('--fine_tune_type', type=str, choices=['right_pair', 'wrong_pair'], default='right_pair', help="Type of fine-tuning: right_pair or wrong_pair")
+    parser.add_argument('--fine_tune_type', type=str, choices=['right_pair', 'wrong_pair', 'both'], default='right_pair', help="Type of fine-tuning: right_pair, wrong_pair, or both")
 
     args = parser.parse_args()
+    
+    # Hardcoded file paths
+    csv_file = "/users/zliu328/multimodal-semantics-entropy/filtered_iapr_dataset_77_tokens.csv"
+    model_save_path = "/users/zliu328/multimHere’s the logic for handling the **right-pair** and **wrong-pair** fine-tuning as well as the new behavior for `both`:
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Fine-tune CLIP model")
+    
+    # Add arguments for hyperparameters
+    parser.add_argument('--num_epochs', type=int, default=20, help="Number of epochs for training")
+    parser.add_argument('--learning_rate', type=float, default=5e-05, help="Learning rate for the optimizer")
+    parser.add_argument('--batch_size', type=int, default=128, help="Batch size for training")
+    parser.add_argument('--accumulation_steps', type=int, default=2, help="Gradient accumulation steps")
+    parser.add_argument('--fine_tune_type', type=str, choices=['right_pair', 'wrong_pair', 'both'], default='right_pair', help="Type of fine-tuning: right_pair, wrong_pair, or both")
+
+    args = parser.parse_args()
+    
+    # Hardcoded file paths
     csv_file = "/users/zliu328/multimodal-semantics-entropy/filtered_iapr_dataset_77_tokens.csv"
     model_save_path = "/users/zliu328/multimodal-semantics-entropy/clip_finetuned_rightpair"
 
     # Call the appropriate fine-tuning function based on the user-specified type
     if args.fine_tune_type == 'right_pair':
         fine_tune_clip(csv_file, model_save_path, args.num_epochs, args.learning_rate, args.batch_size, args.accumulation_steps)
-    else:
+    elif args.fine_tune_type == 'wrong_pair':
+        fine_tune_wrong_pair(csv_file, model_save_path, args.num_epochs, args.learning_rate, args.batch_size, args.accumulation_steps)
+    elif args.fine_tune_type == 'both':
+        print("Running right-pair fine-tuning...")
+        fine_tune_clip(csv_file, model_save_path, args.num_epochs, args.learning_rate, args.batch_size, args.accumulation_steps)
+        
+        print("Running wrong-pair fine-tuning...")
         fine_tune_wrong_pair(csv_file, model_save_path, args.num_epochs, args.learning_rate, args.batch_size, args.accumulation_steps)
