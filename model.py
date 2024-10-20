@@ -1,3 +1,4 @@
+import argparse
 import random
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -8,7 +9,6 @@ import pandas as pd
 
 # Set device to GPU if available
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 # Define the dataset class
 class ContrastiveClipDataset(Dataset):
@@ -23,7 +23,7 @@ class ContrastiveClipDataset(Dataset):
             self.captions = self.data['Description'].tolist()
         else:
             raise KeyError("Expected columns 'Image File Path' and 'Description' not found in CSV file.")
-
+        
         # Create shuffled captions for negative pairs, ensuring no correct pairs are retained
         self.shuffled_captions = random.sample(self.captions, len(self.captions))
         while any(a == b for a, b in zip(self.captions, self.shuffled_captions)):
@@ -47,9 +47,8 @@ class ContrastiveClipDataset(Dataset):
 
         return image, correct_text, wrong_text
 
-
 # Fine-tuning the CLIP model with gradient accumulation
-def fine_tune_clip(csv_file, model_save_path, num_epochs=20, learning_rate=5e-05, accumulation_steps=2):
+def fine_tune_clip(csv_file, model_save_path, num_epochs, learning_rate, batch_size, accumulation_steps):
     # Load the OpenCLIP model and tokenizer
     model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
     tokenizer = open_clip.get_tokenizer('ViT-B-32')
@@ -57,7 +56,7 @@ def fine_tune_clip(csv_file, model_save_path, num_epochs=20, learning_rate=5e-05
 
     # Prepare dataset and dataloader
     dataset = ContrastiveClipDataset(csv_file, preprocess, tokenizer)
-    dataloader = DataLoader(dataset, batch_size=len(dataset), shuffle=False)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     # Define optimizer and loss
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -69,19 +68,12 @@ def fine_tune_clip(csv_file, model_save_path, num_epochs=20, learning_rate=5e-05
         optimizer.zero_grad()  # Start with cleared gradients
 
         for images, correct_texts, wrong_texts in tqdm(dataloader, desc=f"Epoch {epoch + 1}/{num_epochs}"):
-            # Split into two batches for gradient accumulation
-            split_size = len(images) // 2
-
-            # Accumulation step over two batches
-            for i in range(2):
-                if i == 0:
-                    batch_images = images[:split_size].to(device)
-                    batch_correct_texts = correct_texts[:split_size].squeeze(1).to(device)
-                    batch_wrong_texts = wrong_texts[:split_size].squeeze(1).to(device)
-                else:
-                    batch_images = images[split_size:].to(device)
-                    batch_correct_texts = correct_texts[split_size:].squeeze(1).to(device)
-                    batch_wrong_texts = wrong_texts[split_size:].squeeze(1).to(device)
+            # Accumulation step over mini-batches
+            for i in range(accumulation_steps):
+                # Forward pass
+                batch_images = images.to(device)
+                batch_correct_texts = correct_texts.squeeze(1).to(device)
+                batch_wrong_texts = wrong_texts.squeeze(1).to(device)
 
                 # Encode images and both correct/incorrect texts
                 image_features = model.encode_image(batch_images)
@@ -117,7 +109,20 @@ def fine_tune_clip(csv_file, model_save_path, num_epochs=20, learning_rate=5e-05
     print(f"Fine-tuned model saved to {model_save_path}")
 
 
-# Example usage
-csv_file = "/users/zliu328/multimodal-semantics-entropy/filtered_iapr_dataset_77_tokens.csv"
-model_save_path = "/users/zliu328/multimodal-semantics-entropy/clip_finetuned_rightpair.pth"
-fine_tune_clip(csv_file, model_save_path)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Fine-tune CLIP model")
+    
+    # Add arguments for hyperparameters only
+    parser.add_argument('--num_epochs', type=int, default=20, help="Number of epochs for training")
+    parser.add_argument('--learning_rate', type=float, default=5e-05, help="Learning rate for the optimizer")
+    parser.add_argument('--batch_size', type=int, default=1256, help="Batch size for training")
+    parser.add_argument('--accumulation_steps', type=int, default=2, help="Gradient accumulation steps")
+
+    args = parser.parse_args()
+    
+    # Hardcoded file paths
+    csv_file = "/users/zliu328/multimodal-semantics-entropy/filtered_iapr_dataset_77_tokens.csv"
+    model_save_path = "/users/zliu328/multimodal-semantics-entropy/clip_finetuned_rightpair.pth"
+    
+    # Call the fine-tuning function with parsed hyperparameters
+    fine_tune_clip(csv_file, model_save_path, args.num_epochs, args.learning_rate, args.batch_size, args.accumulation_steps)
