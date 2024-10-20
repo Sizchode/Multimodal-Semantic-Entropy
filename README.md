@@ -5,7 +5,7 @@
 - **Model**: OpenCLIP ViT-B/32
 - **Dataset**: Filtered IAPR Dataset (17k image-text pairs)
 - **Batch Size**: 128, split into 2 mini-batches with gradient accumulation
-- **Effective Batch Size**: 256 (Mini-batch size of 17,000, accumulated over 2 steps)
+- **Effective Batch Size**: 256 
 - **Learning Rate**: 5e-05
 - **Gradient Accumulation Steps**: 2
 - **Number of Epochs**: 20
